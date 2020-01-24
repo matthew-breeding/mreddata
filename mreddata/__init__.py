@@ -1,4 +1,5 @@
-from ._data import Hdf5Data
-from ._files import files
-#from ._files.Hdf5Files import resetFiles, filterFiles
-from ._options_parser import options, resetOptions
+from .datatools import options, mreddata, plot_options
+
+#define common symbols used in plot titles/axes/legends etc.
+mu = '\u03bc'
+deg = '\u03B1'
