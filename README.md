@@ -2,7 +2,7 @@
 
 Version 0.1.0:
 
-To install: `pip install mreddata`
+To install: `pip install mreddata`. 
 
 The following command line arguments are used to properly initialize the data:
 ```
