@@ -1,6 +1,7 @@
 import h5py as hp
 import numpy as np
 import pandas as pd
+import pickle as pkl
 import argparse, sys, os
 import matplotlib.pyplot as plt 
  
@@ -40,8 +41,9 @@ def resetOptions():
 	parser.add_argument('--raw', action='store_true', default=False, help='only return the raw data, with no normalization - post processing applied (by default, data is normalized to the gun fluence unit and nIons)')
 	parser.add_argument('--diff', action='store_true', default=False, help='differntial data (default is reverse-integrated)')
 	parser.add_argument('--fullpath', '--includeFilenames', action='store_true', default=False, help='include the full filename')
-	parser.add_argument('-x', '--no-load', action='store_true', default=False, help='Only load the file/histogram names into memory, not the histogram data. Usefull for files with a large number of histograms')
-	parser.add_argument('-e', '--include-error', action='store_true', default=False, help='include error bars in the plot')
+	parser.add_argument('--no-load', action='store_true', default=False, help='Only load the file/histogram names into memory, not the histogram data. Usefull for files with a large number of histograms')
+	parser.add_argument('-m', '--manual-load', action='store_true', default=False, help='default behavior for mreddata is to autodetect what kind of file is being opened. Use the manual flag to select the data type class (Hdf5Data(), PklData(), TxtData()) manually. The default selection is based on the file extensions of whichever file is first in options.files, and renders the appropriate class as Data() (e.g. using "import Hdf5Data as Data")')
+	#parser.add_argument('-e', '--include-error', action='store_true', default=False, help='include error bars in the plot')TODO
 	options, __remaining = parser.parse_known_args(sys.argv[1:])
 	if not options.files:
 		from glob import glob
@@ -62,6 +64,7 @@ class Histogram:
 		self.label = self.fullpath 
 		self.totalDose = 0
 		self.sortOrder = None
+		self.normFactor = 1
 
 	def __repr__(self):
 		if options.fullpath:
@@ -69,7 +72,7 @@ class Histogram:
 		else:
 			return self.name
 	
-	def revInt(self, update=False):
+	def revInt(self):#, update=False):
 		''' Integrates the event count over energy deposition bins from high energy to low energy. When properly normalized, 
 		this gives the cross section for depositing energy above a certain threshold. Default behavior is to only return the 
 		integrated histogram, but if the update parameter is set to true, the dataframe of the histogram object will be updated.'''
@@ -93,8 +96,10 @@ class Histogram:
 		except:
 			print("ERROR -- no data in Histogram object")
 	
-	def normalize(self, normalizationFactor):
-		dff =self.df.loc[:, ('y', 'y2')].apply(lambda x: x/normalizationFactor)
+	def normalize(self):#, normFactor):
+		#if self.normFactor != normFactor:
+		#	self.normFactor = normFactor
+		dff =self.df.loc[:, ('y', 'y2')].apply(lambda x: x/self.normFactor)
 		oldDf = self.df.loc[:]
 		oldDf.update(dff)
 		self.df = oldDf
@@ -117,7 +122,6 @@ class _HistogramListMgr:
 		if type(listIn[0]) == str:
 			for item in listIn:
 				if " - " not in item:
-						
 					print("\n\n\n***********************\nERROR in setting Histogram object list. If only entering names and not Histogram objects, these should be in the format of '/path/to/filename.hdf5 - histogramName' (i.e. with a space-slash-space separating the filename and histogram name).\n\nBreaking from this entry. {}\n\n".format(item))
 					break
 				else:
@@ -183,7 +187,7 @@ class _HistogramListMgr:
 			print("  |")
 			for hist in self.histograms:
 				if parent in hist.filename:
-					print(" +-- {}".format(hist.name))
+					print("  ├── {}".format(hist.name))
 
 	def combineHistograms(self, newHistName, label="", color="", histograms=[]):
 		#TODO: add different method to join the combine and select methods? i.e. pass a string of arguments to filter the default Histogram object list, and then combine those. Not sure if this is necessary. 
@@ -205,150 +209,6 @@ class _HistogramListMgr:
 		newHist.df = newHist.df[['x', 'y', 'y2', 'xy', 'x2y', 'n', 'w', 'edges']]
 		self.customHistograms.append(newHist)
 			
-		
-######################
-# \class Hdf5Data
-#
-# 	The main datatool object in mreddata, providing data manipulation and plotting methods. 
-class Hdf5Data(_HistogramListMgr):
-
-	def __init__(self):
-
-		self.__nameMap = {}
-		self.__attrs = {} 
-		self.__stringData = {}
-		self.__strings = {}
-		self.__histograms = {}
-
-		for filename in options.files:
-			try:
-				with hp.File(filename, 'r') as f:
-					tables = [f['runs'][k] for k in f['runs'].keys()][0]['tables']
-					self.__stringData[filename] = [x[0] for x in tables['string_data'][()]] 
-					self.__strings[filename] = tables['strings'][()]
-					self.__histograms[filename] = tables['histograms'][()]
-					self.__attrs[filename] = {}
-					for key in f.attrs.keys():	# populate the attributes dict
-						self.__attrs[filename][key] = f.attrs[key]
-				self.__constructNameMap(filename)
-
-			except Exception as e:
-				print("ERROR creating Hdf5Data object for {}".format(filename))
-				print(e)
-
-		#  this is a 1-D dictionary as opposed to the other private attributes
-		try:
-			super().__init__(list(self.__nameMap.keys()))
-		except:
-			print("ERROR: Couldn't load histgrams...check the path to make sure it's where the Hdf5 files are located40k.")
-		if not options.no_load: 			#	--no-load is usefull for large files with many histograms; allows exploration of available options without loading into memory
-			self.__loadAllHistograms()
-
-
-	def __getHistogramName(self, strings, filename):
-		return ''.join([chr(self.__stringData[filename][strings[0]+x]) for x in range(strings[1]-1)])
-	def __constructNameMap(self, filename):
-		for i in self.__histograms[filename]:
-			histogramName = self.__getHistogramName(self.__strings[filename][i[0]], filename)
-			self.__nameMap[filename + " - " + histogramName] = (i[1], i[1]+i[2])
-	def __getNormFactor(self, filename, nIonsAttr='nIons', gfuAttr='gfu'):
-		try:
-			if not options.raw:
-				nf =  self.__attrs[filename][nIonsAttr][0] * self.__attrs[filename][gfuAttr][0]
-				return nf
-		except Exception as e:
-			print("Error in __getNormFactor: {}".format(e))
-			try:
-				return self.__attrs[filename][nIonsAttr][0]
-			except:
-				print("couldn't normalize by ions...returning 1")
-				return 1
-
-
-	def attributes(self, *args):
-		''' Displays the file attributes for all files in the current Histogram object list. Shows all file attributes by default, 
-		with the options to pass strings as arguments to view only those attribuetes. '''
-		for filename, attributeKeys in self.__attrs.items():
-			print("--------------------------------")
-			print(f"{filename}")
-			print("  |")
-			for k, a in attributeKeys.items():
-				if args:
-					for arg in args:
-						if arg in k:
-							print("  +-- {:<15}\t{:<15}".format(str(k), str(a)))
-				else:
-					print("  +-- {:<15}\t{:<15}".format(str(k), str(a)))
-
-	
-	def _getHistogram(self, filename,  histogramName=None, diff=None):
-		''' Loads a histogram from the given @filename. Defaults to the first histgoram in the file, but can select 
-		which histogram to load with @histogramName'''
-		diff = diff if diff else options.diff
-		try:
-			displaystate = options.fullpath
-			options.fullpath = True
-			histogramName = histogramName if histogramName else self._histNames[0]
-			options.fullpath = displaystate
-			try:
-				if self.histogramsDict[filename + " - " + histogramName].df:
-					return self.histogramsDict[filename + " - " + histogramName]
-			except:
-				pass
-			with hp.File(filename, 'r') as f:
-				tables = [f['runs'][k] for k in f['runs'].keys()][0]['tables']
-				df = pd.DataFrame(tables['histogram_data'][()][self.__nameMap[filename + " - " + histogramName][0] : self.__nameMap[filename + " - " + histogramName][1]])
-			df.name = filename + " - " + histogramName
-			histogram = self.histogramsDict[df.name]
-			histogram.df = df
-			histogram.normalize(self.__getNormFactor(filename=filename))
-			if not options.diff:
-				histogram.df = histogram.revInt()
-			else:
-				if not options.raw:
-					histogram.df = histogram.binWidthScale()
-			return histogram
-		except Exception as e:
-			print("ERROR in _getHistogram method: {}".format(e))
-			
-	def getHistograms(self, filename=None, histogramNames=None):
-		''' Load and return all of the histograms in the current Histogram object list.'''
-		output=[]
-		filenames = [x.filename for x in self.histograms]
-		try:
-			displaystate = options.fullpath
-			options.fullpath = True
-			for filename in filenames:
-				histogramNames = [x for x in self._histNames if filename in x]
-				for histName, histBounds in self.__nameMap.items():
-					if filename in histName:
-						if histName in histogramNames:
-							if " - " in histName:
-								histName = histName.split(" - ")[1]
-							histogram = self._getHistogram(filename = filename, histogramName=histName)
-							output.append(histogram)
-			options.fullpath = displaystate
-			return output
-		except Exception as e:
-			options.fullpath = displaystate
-			print("ERROR in getHistograms method: {}".format(e))
-	
-	def __loadAllHistograms(self):
-		if not options.no_load:
-			for filename in options.files:
-				with hp.File(filename, 'r') as f:
-					normFactor = self.__getNormFactor(filename=filename)
-					tables = [f['runs'][k] for k in f['runs'].keys()][0]['tables']
-					file_df = pd.DataFrame(tables['histogram_data'][()])
-					for key, bounds in self.__nameMap.items():
-						if filename in key:
-							histogram = self.histogramsDict[key]
-							histogram.df = file_df.loc[bounds[0]:bounds[1]-1].reset_index(drop=True)
-							histogram.normalize(normFactor)
-							if not options.diff:
-								histogram.revInt()
-				del tables, file_df
-
 	def plot(self, histograms = [], **kwargs):
 		# override global plot_options in this instance with kwargs passed as function parameters; set kwargs specific to df.plot()
 		allOptions = PlotOptions(plot_options.__dict__)
@@ -389,5 +249,3 @@ class Hdf5Data(_HistogramListMgr):
 
 		if not allOptions.saveOnly:
 			plt.show()
-
-mreddata = Hdf5Data()

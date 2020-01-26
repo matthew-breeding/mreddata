@@ -20,7 +20,6 @@ The following command line arguments are used to properly initialize the data:
   -x, --no-load         Only load the file/histogram names into memory, not
                         the histogram data. Usefull for files with a large
                         number of histograms
-  -e, --include-error   include error bars in the plot
 ```
 
 `options` and `plot_options` handle the file and plotting attributes, respectively. 
