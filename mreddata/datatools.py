@@ -86,7 +86,7 @@ class Histogram:
 			print("ERROR -- no data in Histogram object")
 
 
-	def totalDose(self):
+	def getTotalDose(self):
 		''' Returns the total dose accumulated in a sensitive region's histogram. Does not include the under/overflow bins. 
 		Default MRED units assumed -- MeV '''# TODO: Include conversion to useful units ( rad (SiO2) )
 		print("DELTE total dose function called. ")
