@@ -7,6 +7,7 @@ To install: `pip install mreddata`.
 Run with `--no-load` to only load the hdf5 file info, without collected the tables. Useful for large files/lots of histograms.  
 `--files <select files here> ` to manually select which hdf5 files; default is all files ending with .hdf5 in the current directory. 
 
+Note: The current version requires the following Hdf5 file attributes to be set: "gfu" and "nIons"
 
 ```python
 >>> from mreddata import options, plot_options, Hdf5Data
