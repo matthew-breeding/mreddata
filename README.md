@@ -17,6 +17,7 @@ Run with `--no-load` to only load the hdf5 file info, without collected the tabl
 `data = Hdf5Data()` creates the histogram object list. (The Histogram class is accessible by `from mreddata.datatools import Histogram`)
 
 Calling the Hdf5Data object displays the filesystem tree with histograms currenlty selected in `data.histograms` organized according to their parent file. This is useful for selecting/fitlering.
+
 ```python
 from mreddata import options, plot_options, Hdf5Data
 data = Hdf5Data()
