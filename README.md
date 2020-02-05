@@ -1,81 +1,41 @@
 # mreddata
 
-Version 0.1.0:
+Version 0.3.30:
 
 To install: `pip install mreddata`. 
 
-The following command line arguments are used to properly initialize the data:
+Run with `--no-load` to only load the hdf5 file info, without collected the tables. Useful for large files/lots of histograms.  
+`--files <select files here> ` to manually select which hdf5 files; default is all files ending with .hdf5 in the current directory. 
 
-```
-  -h, --help            show this help message and exit
-  -f FILES [FILES ...], --files FILES [FILES ...]
-                        Only load data from the HDF5 files listed after this
-                        flag (rather than every HDF5 in the directory)
-  --raw                 only return the raw data, with no normalization - post
-                        processing applied (by default, data is normalized to 
-						the gun fluence unit and nIons)
-  --diff                differntial data (default is reverse-integrated)
-  --fullpath, --includeFilenames
-                        include the full filename
-  -x, --no-load         Only load the file/histogram names into memory, not
-                        the histogram data. Usefull for files with a large
-                        number of histograms
-```
 
-`options` and `plot_options` handle the file and plotting attributes, respectively. 
-
-```
->>> from mreddata import options, plot_options
+```python
+>>> from mreddata import options, plot_options, Hdf5Data
 >>> options.files
 ['250nmAl_250nmAl_10keV000_1.hdf5', '250nmAl_250nmAl_50keV000_19.hdf5', '250nmAl_250nmAu_10keV000_1.hdf5', '250nmAl_250nmAu_50keV000_19.hdf5', '250nmAl_250nmCo_10keV000_1.hdf5', '250nmAl_250nmCo_50keV000_4.hdf5', '250nmAl_250nmCu_10keV000_1.hdf5', '250nmAl_250nmCu_50keV000_19.hdf5', '250nmAl_250nmRu_10keV000_1.hdf5', '250nmAl_250nmRu_50keV000_19.hdf5', '250nmAl_250nmW_10keV000_1.hdf5', '250nmAl_250nmW_50keV000_19.hdf5', '250nmAu_250nmAl_10keV000_1.hdf5', '250nmAu_250nmAl_50keV000_19.hdf5', '250nmCo_250nmAl_10keV000_1.hdf5', '250nmCo_250nmAl_50keV000_19.hdf5', '250nmCo_250nmCu_50keV000_19.hdf5', '250nmCu_250nmAl_10keV000_1.hdf5', '250nmCu_250nmAl_50keV000_19.hdf5', '250nmCu_250nmCo_10keV000_2.hdf5', '250nmCu_250nmCo_50keV000_19.hdf5', '250nmCu_250nmCu_10keV000_3.hdf5', '250nmCu_250nmCu_50keV000_19.hdf5', '250nmRu_250nmAl_10keV000_1.hdf5', '250nmRu_250nmAl_50keV000_19.hdf5', '250nmW_250nmAl_10keV000_1.hdf5', '250nmW_250nmAl_50keV000_19.hdf5']
 ```
 
-`md` (mreddata) has two lists of `Histogram()` objects: `md.histgorams` and `md.customHistograms`. `md.histograms` is automatically populated by Histogram objects constructed from all of the files loaded when the script is called (recall that the default behavior is to load all of the files in the current directory with the .hdf5 file extension). 
+`data = Hdf5Data()` creates the histogram object list. (The Histogram class is accessible by `from mreddata.datatools import Histogram`)
 
-The default representation for the md object is a filesystem tree that includes the file name of every .hdf5 file loaded as well as the names of all their histograms.  
+`data.selectHistograms()` accepts string arguments that filter based on the full path of the histogram (i.e. the filname AND the name of the histogram)
+`data.dropHistograms()` is similar, but drops histograms from the `data.histograms` list that match the strings passed. 
+`data.resetHistograms()` restores the histogram list to its original state, removing all filters. 
 
-```
->>> from mreddata import mreddata as md
->>> md
----------------------------------------
-250nmAl_250nmCo_10keV000_1.hdf5
-  |
- +-- 0.100um_z
- +-- 0.500um_z
- +-- 1.000um_z
- +-- 100.000um_z
- +-- 195.000um_z
- +-- 200.000um_z
----------------------------------------
-250nmAl_250nmAl_50keV000_19.hdf5
-  |
- +-- 0.100um_z
- +-- 0.500um_z
- +-- 1.000um_z
- +-- 100.000um_z
- .
- .
- .
- ```
+`data.combineHistograms(newHistName, histograms=[])` automatically combines the histograms in `data.histograms`, appending the new histogram object to `data.customHistograms` with the name passed. Alternatively, you can manually pass a list of histogram objects to the function.  
 
-(This can also be viewed by running `md.displayHistograms()`)
+`data.attributes()` will display the file attributes for all files with histograms currently loaded in `data.histograms`. You can also pass strings to return only specific attributes (e.g.: `data.attributes("gfu", "nIons")`)
 
-The actual list of histogram objects is at `md.histograms`. If `options.fullpath` is set to `True`, the histogram objects list will display both the histogram name and the full directory path to the file which contains it. It is important to remember that the list is not a list of strings that contain the file/histogram names, but Histogram objects. The names are accessible as keys in `md.histogramsDict` if necessary. The histograms object list can be filtered using `md.selectHistograms(*args, exact=True/False)` and `md.dropHistograms(*args, exact=True/False)`. These methods update the histogram object list by selecting or discarding objects based on matching strings: 
+`data.plot()` will (by default) plot the 'reverse integrated' data for all histograms in the current histogram object list (`data.histograms`). Standard pandas/matplotlib plot options can be passed as keyword arguments directly, or by using `plot_options` (`from mreddata import plot_options`). 
 
-```
->>> options.fullpath = True
->>> md.histograms
-[250nmAl_250nmAl_10keV000_1.hdf5 - 0.100um_z, 250nmAl_250nmAl_10keV000_1.hdf5 - 0.500um_z, 250nmAl_250nmAl_10keV000_1.hdf5 - 1.000um_z, 250nmAl_250nmAl_10keV000_1.hdf5 - 100.000um_z, 250nmAl_250nmAl_10keV000_1.hdf5 - 195.000um_z, 250nmAl_250nmAl_10keV000_1.hdf5 - 200.000um_z, 250nmAl_250nmAl_50keV000_19.hdf5 - 0.100um_z, 250nmAl_250nmAl_50keV000_19.hdf5 - 0.500um_z, 250nmAl_250nmAl_50keV000_19.hdf5 - 1.000um_z, 250nmAl_250nmAl_50keV000_19.hdf5 - 100.000um_z, 250nmAl_250nmAl_50keV000_19.hdf5 - 195.000um_z, 250nmAl_250nmAl_50keV000_19.hdf5 - 200.000um_z, 250nmAl_250nmAu_10keV000_1.hdf5 - 0.100um_z, 250nmAl_250nmAu_10keV000_1.hdf5 - 0.500um_z, 250nmAl_250nmAu_10keV000_1.hdf5 - 1.000um_z, 250nmAl_250nmAu_10keV000_1.hdf5 - 100.000um_z, 250nmAl_250nmAu_10keV000_1.hdf5 - 195.000um_z, 250nmAl_250nmAu_10keV000_1.hdf5 - 200.000um_z, 250nmAl_250nmAu_50keV000_19.hdf5 - 0.100um_z, 250nmAl_250nmAu_50keV000_19.hdf5 - 0.500um_z, 250nmAl_250nmAu_50keV000_19.hdf5 - 1.000um_z, 250nmAl_250nmAu_50keV000_19.hdf5 - 100.000um_z, 250nmAl_250nmAu_50keV000_19.hdf5 - 195.000um_z, 250nmAl_250nmAu_50keV000_19.hdf5 - 200.000um_z, 250nmAl_250nmCo_10keV000_1.hdf5 - 0.100um_z, 250nmAl_250nmCo_10keV000_1.hdf5 - 0.500um_z, 250nmAl_250nmCo_10keV000_1.hdf5 - 1.000um_z, 250nmAl_250nmCo_10keV000_1.hdf5 - 100.000um_z, 250nmAl_250nmCo_10keV000_1.hdf5 - 195.000um_z, 250nmAl_250nmCo_10keV000_1.hdf5 - 200.000um_z, 250nmAl_250nmCo_50keV000_4.hdf5 - 0.100um_z, 250nmAl_250nmCo_50keV000_4.hdf5 - 0.500um_z, 250nmAl_250nmCo_50keV000_4.hdf5 - 1.000um_z, 250nmAl_250nmCo_50keV000_4.hdf5 - 100.000um_z, 250nmAl_250nmCo_50keV000_4.hdf5 - 195.000um_z, 250nmAl_250nmCo_50keV000_4.hdf5 - 200.000um_z, 250nmAl_250nmCu_10keV000_1.hdf5 - 0.100um_z, 250nmAl_250nmCu_10keV000_1.hdf5 - 0.500um_z, 250nmAl_250nmCu_10keV000_1.hdf5 - 1.000um_z, 250nmAl_250nmCu_10keV000_1.hdf5 - 100.000um_z, 250nmAl_250nmCu_10keV000_1.hdf5 - 195.000um_z, 250nmAl_250nmCu_10keV000_1.hdf5 - 200.000um_z, 250nmAl_250nmCu_50keV000_19.hdf5 - 0.100um_z, 250nmAl_250nmCu_50keV000_19.hdf5 - 0.500um_z, 250nmAl_250nmCu_50keV000_19.hdf5 - 1.000um_z, 250nmAl_250nmCu_50keV000_19.hdf5 - 100.000um_z, 250nmAl_250nmCu_50keV000_19.hdf5 - 195.000um_z, 250nmAl_250nmCu_50keV000_19.hdf5 - 200.000um_z, 250nmAl_250nmRu_10keV000_1.hdf5 - 0.100um_z, 250nmAl_250nmRu_10keV000_1.hdf5 - 0.500um_z, 250nmAl_250nmRu_10keV000_1.hdf5 - 1.000um_z, 250nmAl_250nmRu_10keV000_1.hdf5 - 100.000um_z, 250nmAl_250nmRu_10keV000_1.hdf5 - 195.000um_z, 250nmAl_250nmRu_10keV000_1.hdf5 - 200.000um_z, 250nmAl_250nmRu_50keV000_19.hdf5 - 0.100um_z, 250nmAl_250nmRu_50keV000_19.hdf5 - 0.500um_z, 250nmAl_250nmRu_50keV000_19.hdf5 - 1.000um_z, 250nmAl_250nmRu_50keV000_19.hdf5 - 100.000um_z, 250nmAl_250nmRu_50keV000_19.hdf5 - 195.000um_z, 250nmAl_250nmRu_50keV000_19.hdf5 - 200.000um_z, 250nmAl_250nmW_10keV000_1.hdf5 - 0.100um_z, 250nmAl_250nmW_10keV000_1.hdf5 - 0.500um_z, 250nmAl_250nmW_10keV000_1.hdf5 - 1.000um_z, 250nmAl_250nmW_10keV000_1.hdf5 - 100.000um_z, 250nmAl_250nmW_10keV000_1.hdf5 - 195.000um_z, 250nmAl_250nmW_10keV000_1.hdf5 - 200.000um_z, 250nmAl_250nmW_50keV000_19.hdf5 - 0.100um_z, 250nmAl_250nmW_50keV000_19.hdf5 - 0.500um_z, 250nmAl_250nmW_50keV000_19.hdf5 - 1.000um_z, 250nmAl_250nmW_50keV000_19.hdf5 - 100.000um_z, 250nmAl_250nmW_50keV000_19.hdf5 - 195.000um_z, 250nmAl_250nmW_50keV000_19.hdf5 - 200.000um_z, 250nmAu_250nmAl_10keV000_1.hdf5 - 0.100um_z, 250nmAu_250nmAl_10keV000_1.hdf5 - 0.500um_z, 250nmAu_250nmAl_10keV000_1.hdf5 - 1.000um_z, 250nmAu_250nmAl_10keV000_1.hdf5 - 100.000um_z, 250nmAu_250nmAl_10keV000_1.hdf5 - 195.000um_z, 250nmAu_250nmAl_10keV000_1.hdf5 - 200.000um_z, 250nmAu_250nmAl_50keV000_19.hdf5 - 0.100um_z, 250nmAu_250nmAl_50keV000_19.hdf5 - 0.500um_z, 250nmAu_250nmAl_50keV000_19.hdf5 - 1.000um_z, 250nmAu_250nmAl_50keV000_19.hdf5 - 100.000um_z, 250nmAu_250nmAl_50keV000_19.hdf5 - 195.000um_z, 250nmAu_250nmAl_50keV000_19.hdf5 - 200.000um_z, 250nmCo_250nmAl_10keV000_1.hdf5 - 0.100um_z, 250nmCo_250nmAl_10keV000_1.hdf5 - 0.500um_z, 250nmCo_250nmAl_10keV000_1.hdf5 - 1.000um_z, 250nmCo_250nmAl_10keV000_1.hdf5 - 100.000um_z, 250nmCo_250nmAl_10keV000_1.hdf5 - 195.000um_z, 250nmCo_250nmAl_10keV000_1.hdf5 - 200.000um_z, 250nmCo_250nmAl_50keV000_19.hdf5 - 0.100um_z, 250nmCo_250nmAl_50keV000_19.hdf5 - 0.500um_z, 250nmCo_250nmAl_50keV000_19.hdf5 - 1.000um_z, 250nmCo_250nmAl_50keV000_19.hdf5 - 100.000um_z, 250nmCo_250nmAl_50keV000_19.hdf5 - 195.000um_z, 250nmCo_250nmAl_50keV000_19.hdf5 - 200.000um_z, 250nmCo_250nmCu_50keV000_19.hdf5 - 0.100um_z, 250nmCo_250nmCu_50keV000_19.hdf5 - 0.500um_z, 250nmCo_250nmCu_50keV000_19.hdf5 - 1.000um_z, 250nmCo_250nmCu_50keV000_19.hdf5 - 100.000um_z, 250nmCo_250nmCu_50keV000_19.hdf5 - 195.000um_z, 250nmCo_250nmCu_50keV000_19.hdf5 - 200.000um_z, 250nmCu_250nmAl_10keV000_1.hdf5 - 0.100um_z, 250nmCu_250nmAl_10keV000_1.hdf5 - 0.500um_z, 250nmCu_250nmAl_10keV000_1.hdf5 - 1.000um_z, 250nmCu_250nmAl_10keV000_1.hdf5 - 100.000um_z, 250nmCu_250nmAl_10keV000_1.hdf5 - 195.000um_z, 250nmCu_250nmAl_10keV000_1.hdf5 - 200.000um_z, 250nmCu_250nmAl_50keV000_19.hdf5 - 0.100um_z, 250nmCu_250nmAl_50keV000_19.hdf5 - 0.500um_z, 250nmCu_250nmAl_50keV000_19.hdf5 - 1.000um_z, 250nmCu_250nmAl_50keV000_19.hdf5 - 100.000um_z, 250nmCu_250nmAl_50keV000_19.hdf5 - 195.000um_z, 250nmCu_250nmAl_50keV000_19.hdf5 - 200.000um_z, 250nmCu_250nmCo_10keV000_2.hdf5 - 0.100um_z, 250nmCu_250nmCo_10keV000_2.hdf5 - 0.500um_z, 250nmCu_250nmCo_10keV000_2.hdf5 - 1.000um_z, 250nmCu_250nmCo_10keV000_2.hdf5 - 100.000um_z, 250nmCu_250nmCo_10keV000_2.hdf5 - 195.000um_z, 250nmCu_250nmCo_10keV000_2.hdf5 - 200.000um_z, 250nmCu_250nmCo_50keV000_19.hdf5 - 0.100um_z, 250nmCu_250nmCo_50keV000_19.hdf5 - 0.500um_z, 250nmCu_250nmCo_50keV000_19.hdf5 - 1.000um_z, 250nmCu_250nmCo_50keV000_19.hdf5 - 100.000um_z, 250nmCu_250nmCo_50keV000_19.hdf5 - 195.000um_z, 250nmCu_250nmCo_50keV000_19.hdf5 - 200.000um_z, 250nmCu_250nmCu_10keV000_3.hdf5 - 0.100um_z, 250nmCu_250nmCu_10keV000_3.hdf5 - 0.500um_z, 250nmCu_250nmCu_10keV000_3.hdf5 - 1.000um_z, 250nmCu_250nmCu_10keV000_3.hdf5 - 100.000um_z, 250nmCu_250nmCu_10keV000_3.hdf5 - 195.000um_z, 250nmCu_250nmCu_10keV000_3.hdf5 - 200.000um_z, 250nmCu_250nmCu_50keV000_19.hdf5 - 0.100um_z, 250nmCu_250nmCu_50keV000_19.hdf5 - 0.500um_z, 250nmCu_250nmCu_50keV000_19.hdf5 - 1.000um_z, 250nmCu_250nmCu_50keV000_19.hdf5 - 100.000um_z, 250nmCu_250nmCu_50keV000_19.hdf5 - 195.000um_z, 250nmCu_250nmCu_50keV000_19.hdf5 - 200.000um_z, 250nmRu_250nmAl_10keV000_1.hdf5 - 0.100um_z, 250nmRu_250nmAl_10keV000_1.hdf5 - 0.500um_z, 250nmRu_250nmAl_10keV000_1.hdf5 - 1.000um_z, 250nmRu_250nmAl_10keV000_1.hdf5 - 100.000um_z, 250nmRu_250nmAl_10keV000_1.hdf5 - 195.000um_z, 250nmRu_250nmAl_10keV000_1.hdf5 - 200.000um_z, 250nmRu_250nmAl_50keV000_19.hdf5 - 0.100um_z, 250nmRu_250nmAl_50keV000_19.hdf5 - 0.500um_z, 250nmRu_250nmAl_50keV000_19.hdf5 - 1.000um_z, 250nmRu_250nmAl_50keV000_19.hdf5 - 100.000um_z, 250nmRu_250nmAl_50keV000_19.hdf5 - 195.000um_z, 250nmRu_250nmAl_50keV000_19.hdf5 - 200.000um_z, 250nmW_250nmAl_10keV000_1.hdf5 - 0.100um_z, 250nmW_250nmAl_10keV000_1.hdf5 - 0.500um_z, 250nmW_250nmAl_10keV000_1.hdf5 - 1.000um_z, 250nmW_250nmAl_10keV000_1.hdf5 - 100.000um_z, 250nmW_250nmAl_10keV000_1.hdf5 - 195.000um_z, 250nmW_250nmAl_10keV000_1.hdf5 - 200.000um_z, 250nmW_250nmAl_50keV000_19.hdf5 - 0.100um_z, 250nmW_250nmAl_50keV000_19.hdf5 - 0.500um_z, 250nmW_250nmAl_50keV000_19.hdf5 - 1.000um_z, 250nmW_250nmAl_50keV000_19.hdf5 - 100.000um_z, 250nmW_250nmAl_50keV000_19.hdf5 - 195.000um_z, 250nmW_250nmAl_50keV000_19.hdf5 - 200.000um_z]
->>> md.selectHistograms("250nmAl_250nmW")
->>> md.histograms
-[250nmAl_250nmW_10keV000_1.hdf5 - 0.100um_z, 250nmAl_250nmW_10keV000_1.hdf5 - 0.500um_z, 250nmAl_250nmW_10keV000_1.hdf5 - 1.000um_z, 250nmAl_250nmW_10keV000_1.hdf5 - 100.000um_z, 250nmAl_250nmW_10keV000_1.hdf5 - 195.000um_z, 250nmAl_250nmW_10keV000_1.hdf5 - 200.000um_z, 250nmAl_250nmW_50keV000_19.hdf5 - 0.100um_z, 250nmAl_250nmW_50keV000_19.hdf5 - 0.500um_z, 250nmAl_250nmW_50keV000_19.hdf5 - 1.000um_z, 250nmAl_250nmW_50keV000_19.hdf5 - 100.000um_z, 250nmAl_250nmW_50keV000_19.hdf5 - 195.000um_z, 250nmAl_250nmW_50keV000_19.hdf5 - 200.000um_z]
+The histogram objects themselves have attributes which handle their plotting behavior. For example:
+
+```python
+histogram = data.histograms[0]
+histogram.label = 'Label text'  # defaults to the histogram.fullpath
+histogram.color = 'red'
+histogram.dashes = [1,4] 		#(None, None) is default
 ```
 
-The object list is updated, and the filetree view (`md` or `md.displayHistograms()`) shows the resulting structure. The original files/histograms can be reloaded at any time: `md.resetHistograms()` 
-Histograms can be combined to form new histograms using `md.combineHistograms(newHistName)`. This method will take the optional argument of `histograms=[]`, and by default attempts to combine all of the histograms in the current working histogram object list (`md.histograms`). These custom histograms are then added to the object list `md.customHistograms`, which can then be plotted separately or in conjunction with the normal histograms.  
+The pandas DataFrame object is accesible via `histogram.df`
 
-For files with a large amount of data, loading every histogram into memory is not always smartest option. Passing the flag `--no-load` when running the script will still populate the histogram object list, but will not pull any of the actual histogram data from the file -- only the names, which can then be explored and down selected using the above mentioned filters. Once you're ready to load the actual data from the histograms selected in `md.histograms`, use `mred.getHistograms()`.
-
-`md.plot()` uses the default settings stored in the `plot_options` object; standard matplotlib commands can be passed directly to the function as well, overriding `plot_options`.
-
-The mu and degree symbols are available for import as well, as these are often used in plotting legends, titles, etc.: `from mreddata import mu, deg`
+Columns are calculated by default when loading files (unless `--no-load` selected) to include the following columns: `['x', 'y_raw', 'n', 'w', 'y_norm', 'y_int', 'y_diff']`. 
+`y_norm` is normalized using the gfu and nIons file attributes, and `y_int` and `y_diff` correspond to the integrated and differential values, respectively. Any of these columns can be substituted in place of the default `y_int` when plotting using the standard pandas format for data selection: `data.plot(y='y_diff')`
