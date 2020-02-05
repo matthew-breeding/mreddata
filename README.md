@@ -16,8 +16,40 @@ Run with `--no-load` to only load the hdf5 file info, without collected the tabl
 
 `data = Hdf5Data()` creates the histogram object list. (The Histogram class is accessible by `from mreddata.datatools import Histogram`)
 
+Calling the Hdf5Data object displays the filesystem tree with histograms currenlty selected in `data.histograms` organized according to their parent file. This is useful for selecting/fitlering.
+```python
+from mreddata import options, plot_options, Hdf5Data
+data = Hdf5Data()
+>>> data
+---------------------------------------
+tungsten001_9.hdf5
+  |
+  ├── n7_sd
+  ├── n6_sd
+  ├── n3_sd
+  ├── n10_sd
+  ├── n9_sd
+  ├── n8_sd
+  ├── n5_sd
+  ├── n4_sd
+  ├── n2_sd
+  ├── n1_sd
+---------------------------------------
+tungsten000_9.hdf5
+  |
+  ├── n7_sd
+  ├── n6_sd
+  ├── n3_sd
+  ├── n10_sd
+  ├── n9_sd
+  ├── n8_sd
+  . . . 
+```
+
 `data.selectHistograms()` accepts string arguments that filter based on the full path of the histogram (i.e. the filname AND the name of the histogram)
+
 `data.dropHistograms()` is similar, but drops histograms from the `data.histograms` list that match the strings passed. 
+
 `data.resetHistograms()` restores the histogram list to its original state, removing all filters. 
 
 `data.combineHistograms(newHistName, histograms=[])` automatically combines the histograms in `data.histograms`, appending the new histogram object to `data.customHistograms` with the name passed. Alternatively, you can manually pass a list of histogram objects to the function.  
