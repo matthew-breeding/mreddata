@@ -1,12 +1,12 @@
 import h5py as hp
 import pandas as pd
-from .datatools import _HistogramListMgr, options
+from .datatools import _HistogramList, options, Histogram
  
 ######################
 # \class Hdf5Data
 #
 # 	The main datatool object in mreddata, providing data manipulation and plotting methods. 
-class Hdf5Data(_HistogramListMgr):
+class Hdf5Data(_HistogramList):
 
 	def __init__(self):
 
@@ -21,7 +21,7 @@ class Hdf5Data(_HistogramListMgr):
 				try:
 					with hp.File(filename, 'r') as f:
 						tables = [f['runs'][k] for k in f['runs'].keys()][0]['tables']
-						self.__stringData[filename] = [x[0] for x in tables['string_data'][()]] 
+						self.__stringData[filename] = [x[0] for x in tables['string_data'][()]] #TODO: Allow for many runs in one hdf5? low priority
 						self.__strings[filename] = tables['strings'][()]
 						self.__histograms[filename] = tables['histograms'][()]
 						self.__attrs[filename] = {}
@@ -37,9 +37,8 @@ class Hdf5Data(_HistogramListMgr):
 		try:
 			super().__init__(list(self.__nameMap.keys()))
 		except:
-			print("ERROR: Couldn't load histgrams...check the path to make sure it's where the Hdf5 files are located40k.")
-		if not options.no_load: 			#	--no-load is usefull for large files with many histograms; allows exploration of available options without loading into memory
-			self.__loadAllHistograms()
+			print("ERROR: Couldn't load histgrams...check the path to make sure it's where the Hdf5 files are located.")
+		self.__loadAllHistograms()
 
 	def __getHistogramName(self, strings, filename):
 		return ''.join([chr(self.__stringData[filename][strings[0]+x]) for x in range(strings[1]-1)])
@@ -47,40 +46,31 @@ class Hdf5Data(_HistogramListMgr):
 		for i in self.__histograms[filename]:
 			histogramName = self.__getHistogramName(self.__strings[filename][i[0]], filename)
 			self.__nameMap[filename + " - " + histogramName] = (i[1], i[1]+i[2])
-	def __getNormFactor(self, filename, nIonsAttr='nIons', gfuAttr='gfu'):
-		try:
-			if not options.raw:
-				nf =  self.__attrs[filename][nIonsAttr][0] * self.__attrs[filename][gfuAttr][0]
-				return nf
-		except Exception as e:
-			print("Error in __getNormFactor: {} for the file: {}".format(e, filename))
-			try:
-				return self.__attrs[filename][nIonsAttr][0]
-			except:
-				print("couldn't normalize by ions...returning 1")
-				return 1
 
 
 	def attributes(self, *args):
 		''' Displays the file attributes for all files in the current Histogram object list. Shows all file attributes by default, 
 		with the options to pass strings as arguments to view only those attribuetes. '''
-		for filename, attributeKeys in self.__attrs.items():
+		filenames  = set([h.filename for h in self.histograms])
+		for filename in filenames:
 			print("--------------------------------")
 			print(f"{filename}")
 			print("  |")
-			for k, a in attributeKeys.items():
+			for k, a in self.__attrs[filename].items():
+				#for filename, attrs in self.__attrs.items():
+					#if filename in [x.fullpath for x in self.histograms]:
 				if args:
 					for arg in args:
 						if arg in k:
-							print("  +-- {:<15}\t{:<15}".format(str(k), str(a)))
+							print("  ├-- {:<15}\t{:<15}".format(str(k), str(a)))
 				else:
-					print("  +-- {:<15}\t{:<15}".format(str(k), str(a)))
+					print("  ├-- {:<15}\t{:<15}".format(str(k), str(a)))
 
+#TODO: Add attributes dict
 	
 	def _getHistogram(self, filename,  histogramName=None, diff=None):
 		''' Loads a histogram from the given @filename. Defaults to the first histgoram in the file, but can select 
 		which histogram to load with @histogramName'''
-		diff = diff if diff else options.diff
 		try:
 			displaystate = options.fullpath
 			options.fullpath = True
@@ -91,20 +81,17 @@ class Hdf5Data(_HistogramListMgr):
 					return self.histogramsDict[filename + " - " + histogramName]
 			except:
 				pass
+
 			with hp.File(filename, 'r') as f:
 				tables = [f['runs'][k] for k in f['runs'].keys()][0]['tables']
 				df = pd.DataFrame(tables['histogram_data'][()][self.__nameMap[filename + " - " + histogramName][0] : self.__nameMap[filename + " - " + histogramName][1]])
 			df.name = filename + " - " + histogramName
-			histogram = self.histogramsDict[df.name]
-			histogram.df = df
-			histogram.normFactor = self.__getNormFactor(filename=filename)
-			if not options.raw:
-				histogram.normalize()
-			if not options.diff:
-				histogram.revInt()
-			else:
-				if not options.raw:
-					histogram.df = histogram.binWidthScale()
+			gfu = self.__attrs[filename]['gfu'][0]  	#TODO: Think about generalizing this to any naming convention for nIons/gfu
+			nIons = self.__attrs[filename]['nIons'][0]
+			histogram = self.histogramsDict[df.name]#Histogram(filename = filename, histname = histogramName, df = df, gfu = gfu, nIons=nIons)
+			histogram.setDF(df)
+			#self.histogramsDict[df.name] = histogram
+
 			return histogram
 		except Exception as e:
 			print("ERROR in _getHistogram method: {}".format(e))
@@ -120,7 +107,7 @@ class Hdf5Data(_HistogramListMgr):
 				histogramNames = [x for x in self._histNames if filename in x]
 				for histName, histBounds in self.__nameMap.items():
 					if filename in histName:
-						if histName in histogramNames:
+						if histName in histogramNames: #TODO: CLean this spaghetti bullshit up
 							if " - " in histName:
 								histName = histName.split(" - ")[1]
 							histogram = self._getHistogram(filename = filename, histogramName=histName)
@@ -132,18 +119,21 @@ class Hdf5Data(_HistogramListMgr):
 			print("ERROR in getHistograms method: {}".format(e))
 	
 	def __loadAllHistograms(self):
-		if not options.no_load:
+		if not options.no_load: #	--no-load is usefull for large files with many histograms; allows exploration of available options without loading into memory
 			for filename in options.files:
 				with hp.File(filename, 'r') as f:
-					normFactor = self.__getNormFactor(filename=filename)
+					gfu = self.__attrs[filename]['gfu'][0]  	#TODO: Think about generalizing this to any naming convention for nIons/gfu
+					nIons = self.__attrs[filename]['nIons'][0]
 					tables = [f['runs'][k] for k in f['runs'].keys()][0]['tables']
 					file_df = pd.DataFrame(tables['histogram_data'][()])
 					for key, bounds in self.__nameMap.items():
 						if filename in key:
-							histogram = self.histogramsDict[key]
-							histogram.df = file_df.loc[bounds[0]:bounds[1]-1].reset_index(drop=True)
-							histogram.normFactor = normFactor
-							histogram.normalize()
-							if not options.diff:
-								histogram.revInt()
+							#df= copy.deepcopy(file_df)
+							df = file_df.loc[bounds[0]:bounds[1]-1].reset_index(drop=True)
+							histogram = self.histogramsDict[key] #Histogram(filename = filename, histname = key.split(" - ")[1], df=df, gfu = gfu, nIons=nIons)
+							histogram.gfu = gfu
+							histogram.nIons = nIons
+							histogram.setDF(df)
+							#self.histogramsDict[key] = histogram
+							del df
 				del tables, file_df

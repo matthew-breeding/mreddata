@@ -1,7 +1,6 @@
 import h5py as hp
 import numpy as np
 import pandas as pd
-import pickle as pkl
 import argparse, sys, os
 import matplotlib.pyplot as plt 
  
@@ -15,7 +14,7 @@ class PlotOptions:
 	def resetDefaults(self):
 		self.fontsize = 10
 		self.xlim = (1e-3, 1e2)
-		self.ylim = (1e-20, 1e-5)
+		self.ylim = 'auto'#(1e-20, 1e-5)
 		self.dpi = 100
 		self.title = ""
 		self.xlabel = "Energy Deposited [MeV]"
@@ -23,6 +22,9 @@ class PlotOptions:
 		self.logx = True
 		self.logy = True
 		self.size = (6.4, 4.8)
+		self.dashes = (None, None)
+		self.dashesOn = True
+		self.drawstyle = 'steps' # or default
 		self.legendPadding = 0.8
 		self.save = False
 		self.saveOnly = False 				# Don't plot, just save 
@@ -38,16 +40,19 @@ plot_options = PlotOptions()
 def resetOptions():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-f', '--files' , type=str, nargs="+", default=[], help='Only load data from the HDF5 files listed after this flag (rather than every HDF5 in the directory)')
-	parser.add_argument('--raw', action='store_true', default=False, help='only return the raw data, with no normalization - post processing applied (by default, data is normalized to the gun fluence unit and nIons)')
-	parser.add_argument('--diff', action='store_true', default=False, help='differntial data (default is reverse-integrated)')
 	parser.add_argument('--fullpath', '--includeFilenames', action='store_true', default=False, help='include the full filename')
 	parser.add_argument('--no-load', action='store_true', default=False, help='Only load the file/histogram names into memory, not the histogram data. Usefull for files with a large number of histograms')
+	parser.add_argument('--no-norm', action='store_true', default=False, help='for pkl/txt files; selecting this flag disables the interactive setting of the gfu and nIons for the run/file.')
 	parser.add_argument('-m', '--manual-load', action='store_true', default=False, help='default behavior for mreddata is to autodetect what kind of file is being opened. Use the manual flag to select the data type class (Hdf5Data(), PklData(), TxtData()) manually. The default selection is based on the file extensions of whichever file is first in options.files, and renders the appropriate class as Data() (e.g. using "import Hdf5Data as Data")')
 	#parser.add_argument('-e', '--include-error', action='store_true', default=False, help='include error bars in the plot')TODO
 	options, __remaining = parser.parse_known_args(sys.argv[1:])
 	if not options.files:
 		from glob import glob
 		options.files = glob("*.hdf5")
+		if not options.files:
+			options.files = glob("*.pkl")
+			if not options.files:
+				options.files = glob("*.txt")
 	return options
 
 options = resetOptions()
@@ -55,16 +60,17 @@ options = resetOptions()
 ######################
 # \class Histogram
 class Histogram:
-	def __init__(self, histname, filename, df = None, label=None, color=None):
-		self.df = df
+	def __init__(self, histname, filename, df = None, label=None, color=None, dashes = (None, None), sortOrder=None, gfu=1, nIons=0, custom=False):
 		self.filename = filename
 		self.name = histname
 		self.color = color
 		self.fullpath = self.filename + " - " + self.name
-		self.label = self.fullpath 
-		self.totalDose = 0
-		self.sortOrder = None
-		self.normFactor = 1
+		self.label = label if label else self.fullpath 
+		self.sortOrder = sortOrder
+		self.gfu = gfu
+		self.nIons = nIons
+		self.dashes = dashes
+		self.setDF(df, custom = custom)
 
 	def __repr__(self):
 		if options.fullpath:
@@ -72,51 +78,53 @@ class Histogram:
 		else:
 			return self.name
 	
-	def revInt(self):#, update=False):
-		''' Integrates the event count over energy deposition bins from high energy to low energy. When properly normalized, 
-		this gives the cross section for depositing energy above a certain threshold. Default behavior is to only return the 
-		integrated histogram, but if the update parameter is set to true, the dataframe of the histogram object will be updated.'''
-		try:
-			oldDf = self.df.loc[:]
-			dff = self.df.loc[:, ('y', 'y2')][::-1].cumsum()[::-1]
-			oldDf.update(dff)
-			self.df = oldDf
-			del oldDf, dff
-		except:
-			print("ERROR -- no data in Histogram object")
+	def setDF(self, df, yOnly =True, custom=False):
+		if custom:
+			self.df = df
+			return df#There has to be a better way of doing this. TODO
+		if type(df) != type(None):
+			if yOnly:
+				#columnsToNormalize = ['y']#TODO: Procedurally generate the other columns based on this rather than explicitly, expand for all columns (xy, x2y etc.)
+				df = df[['x', 'y', 'n', 'w']].copy()
+				df.columns = ['x', 'y_raw', 'n', 'w']
+				if int(sum(df['n'])) > self.nIons:
+					self.nIons = int(sum(df['n'])) 
 
+				df.loc[:, ('y_norm')] = df['y_raw']/(self.gfu * self.nIons)
+				df.loc[:, ('y_int')] =  df.loc[:,('y_norm')][::-1].cumsum()[::-1]
+				df.loc[:, ('y_diff')] = df['y_norm'] / df['w']
+				df['y_diff'][0] = 0
+				df = df.fillna(0)
+				self.df = df
+				self._getTotalDose()
+			else:
+					##TODO
+				columnsToNormalize = ['y', 'y2', 'xy', 'x2y']
+	
+	def getHistAtE(self, energy, column = None):
+		idx = np.abs(self.df['x'] - energy).idxmin()		
+		if column:
+			return list(self.df[idx:idx + 1][column])[0]
+		else:
+			return self.df[idx:idx + 1]
 
-	def getTotalDose(self):
+	def _getTotalDose(self, weighted=True):####Need way of converting from revInt back to diff/raw for calculating total dose. 
 		''' Returns the total dose accumulated in a sensitive region's histogram. Does not include the under/overflow bins. 
 		Default MRED units assumed -- MeV '''# TODO: Include conversion to useful units ( rad (SiO2) )
-		print("DELTE total dose function called. ")
 		try:
-			self.totalDose =  np.sum(list(self.df['x'] * self.df['y'])[1:-1])
-			return self.totalDose
+			if weighted:
+				self.totalDose =  np.sum(list(self.df['x'] * self.df['y_norm'])[1:-1])
+			else:
+				self.totalDose =  np.sum(list(self.df['x'] * self.df['n'])[1:-1])
 		except:
 			print("ERROR -- no data in Histogram object")
 	
-	def normalize(self):#, normFactor):
-		#if self.normFactor != normFactor:
-		#	self.normFactor = normFactor
-		dff =self.df.loc[:, ('y', 'y2')].apply(lambda x: x/self.normFactor)
-		oldDf = self.df.loc[:]
-		oldDf.update(dff)
-		self.df = oldDf
-		del oldDf, dff
-	
-	def binWidthScale(self):
-		dff = (self.df.loc[:, ('y', 'y2')].T / self.df.loc[:, ('w')]).T
-		oldDf = self.df.loc[:]
-		oldDf.update(dff)
-		self.df = oldDf
-		del oldDf, dff
 
 ######################
 # \class _HistogramListMgr
 #	
 #	This private class provides utilities for managing the histogram object list such as sorting, selecting, filtering
-class _HistogramListMgr:
+class _HistogramList:
 	def __init__(self, listIn = []):
 		self.histograms = []
 		if type(listIn[0]) == str:
@@ -190,44 +198,66 @@ class _HistogramListMgr:
 					print("  ├── {}".format(hist.name))
 
 	def combineHistograms(self, newHistName, label="", color="", histograms=[]):
-		#TODO: add different method to join the combine and select methods? i.e. pass a string of arguments to filter the default Histogram object list, and then combine those. Not sure if this is necessary. 
 		#TODO: add method for saving to file
 		''' Combines all of the histgorams in the current Histogram object list''' 
 		if not histograms:
 			histograms = self.histograms
-		newHist = Histogram(histname = newHistName , filename='combined histograms', label=label, color=color)
-		newHist.df = self.histograms[0].df.loc[:, ('x', 'w', 'edges')]
-		for h in histograms:
-			if (h.df[['x', 'w', 'edges']] == newHist.df[['x', 'w', 'edges']]).all().all():#check that bins match
-				if 'y' in newHist.df.columns:
-					newHist.df[['y', 'y2', 'xy', 'x2y', 'n']] += h.df.loc[:, ('y', 'y2', 'xy', 'x2y', 'n')] 
-				else:
-					newHist.df[['y', 'y2', 'xy', 'x2y', 'n']] = h.df.loc[:, ('y', 'y2', 'xy', 'x2y', 'n')]
-			else:
-				print("ERROR: Cannot combine historams because the bins do not match. (failed on histogram: {})".format(h))
-				#TODO: add method for combining histograms with different bins
-		newHist.df = newHist.df[['x', 'y', 'y2', 'xy', 'x2y', 'n', 'w', 'edges']]
+
+		if len(set([h.gfu for h in histograms])) > 1:
+			print("ERROR: gun fluence units do not match -- cannot combine histograms." )
+			return False
+
+		#if sum([h.df['w'] for h in histograms]) / len(histograms) != h.df['w']:
+			#print("ERROR: bin widths do not match")
+		#TODO: Fix this...don't need it for right now though (NSREC)
+		
+		gfu = histograms[0].gfu
+		nTotal = sum([h.nIons for h in histograms])
+		cDF = histograms[0].df.loc[:,('x', 'w')]
+		cDF[['y','n']] = sum([h.df[['y_raw', 'n']] for h in histograms])
+		newHist = Histogram(histname = newHistName , filename='combined histograms', label=label, color=color, df = cDF, gfu = gfu, nIons=nTotal)
 		self.customHistograms.append(newHist)
-			
-	def plot(self, histograms = [], **kwargs):
+		return newHist
+
+	#TODO: Auto-determine plot limits based on the data. Toggle this as an option
+	#TODO: Think about how to make this more efficient, allow for pltoting different types aside from just y_int for example
+	def plot(self, histograms = [], y='y_int',**kwargs):
 		# override global plot_options in this instance with kwargs passed as function parameters; set kwargs specific to df.plot()
 		allOptions = PlotOptions(plot_options.__dict__)
 		allOptions.__dict__.update(kwargs)
-		plotKwargs = {k:v for k, v in allOptions.__dict__.items() if k in ['kind', 'figsize', 'use_index', 'title', 'grid', 'legend', 'style', 'logx', 'logy', 'loglog', 'xticks', 'yticks', 'xlim', 'ylim', 'rot', 'fontsize', 'colormap', 'colorbar', 'position', 'table', 'yerr', 'xerr']}
 
 		# load histograms
 		if not histograms:
 			histograms = self.histograms
+		# automatically find the best y limit
+		if allOptions.ylim == 'auto':
+			yMin = 1e300
+			yMax = 1e-300
+			for h in histograms:
+				tmin = h.df[h.df[y] > 0][y].min()
+				tmax = h.df[h.df[y] > 0][y].max()
+				yMin = tmin if tmin < yMin else yMin
+				yMax = tmax if tmax > yMax else yMax
+			yMax *= 10
+			allOptions.ylim = (yMin, yMax)
+
+		plotKwargs = {k:v for k, v in allOptions.__dict__.items() if k in ['kind', 'figsize', 'use_index', 'title', 'grid', 'legend', 'style', 'logx', 'logy', 'loglog', 'xticks', 'yticks', 'xlim', 'ylim', 'rot', 'fontsize', 'colormap', 'colorbar', 'position', 'table', 'yerr', 'xerr', 'dahses', 'drawstyle']}
 
 		plt.figure()
 		ax = plt.subplot()
 
 		for histogram in histograms:
 			df = histogram.df
-			if histogram.color:
-				df.plot(x='x', y='y', label = histogram.label, color=color, ax = ax, **plotKwargs)
+			if allOptions.dashesOn:
+				if histogram.color:
+					df.plot(x='x', y=y, label = histogram.label, dashes = histogram.dashes, color=histogram.color, ax = ax, **plotKwargs)
+				else:
+					df.plot(x='x', y=y, label = histogram.label, dashes = histogram.dashes, ax = ax, **plotKwargs)
 			else:
-				df.plot(x='x', y='y', label = histogram.label, ax = ax, **plotKwargs)
+				if histogram.color:
+					df.plot(x='x', y=y, label = histogram.label, color=histogram.color, ax = ax, **plotKwargs)
+				else:
+					df.plot(x='x', y=y, label = histogram.label, ax = ax, **plotKwargs)
 
 		if allOptions.legend:
 			ax.legend(allOptions.legend, loc=allOptions.loc, bbox_to_anchor = allOptions.bbox_to_anchor)
