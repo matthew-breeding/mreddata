@@ -57,8 +57,21 @@ def resetOptions():
 
 options = resetOptions()
 
+
+### TODO: write class
+colors = {
+	'cu' : [(252./255,13./255,27./255)],
+	'copper' : [(252./255,13./255,27./255)],
+	'w' : [(41./255,253./255,47./255)],
+	'tungsten' : [(41./255,253./255,47./255)],
+	'au' : [(1,127./255,0)],
+	'ru' : [(153./255,102./255,51./255)],
+	'co' : [(0, 0, 1)],
+	'cobalt' : [(0, 0, 1)]}
+
 ######################
 # \class Histogram
+#### TODO: (maybe) -- write export functions (csv, pickle etc.)
 class Histogram:
 	def __init__(self, histname, filename, df = None, label=None, color=None, dashes = (None, None), sortOrder=None, gfu=1, nIons=0, custom=False):
 		self.filename = filename
@@ -118,6 +131,9 @@ class Histogram:
 				self.totalDose =  np.sum(list(self.df['x'] * self.df['n'])[1:-1])
 		except:
 			print("ERROR -- no data in Histogram object")
+	
+	#def setColor(element):
+
 	
 
 ######################
@@ -211,7 +227,11 @@ class _HistogramList:
 			#print("ERROR: bin widths do not match")
 		#TODO: Fix this...don't need it for right now though (NSREC)
 		
-		gfu = histograms[0].gfu
+		if len(histograms) > 0:
+			gfu = histograms[0].gfu 
+		else:
+			print("ERROR: No histograms passed to combineHistograms()")
+			return False
 		nTotal = sum([h.nIons for h in histograms])
 		cDF = histograms[0].df.loc[:,('x', 'w')]
 		cDF[['y','n']] = sum([h.df[['y_raw', 'n']] for h in histograms])
@@ -219,7 +239,6 @@ class _HistogramList:
 		self.customHistograms.append(newHist)
 		return newHist
 
-	#TODO: Auto-determine plot limits based on the data. Toggle this as an option
 	#TODO: Think about how to make this more efficient, allow for pltoting different types aside from just y_int for example
 	def plot(self, histograms = [], y='y_int',**kwargs):
 		# override global plot_options in this instance with kwargs passed as function parameters; set kwargs specific to df.plot()

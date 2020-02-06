@@ -84,10 +84,16 @@ class Hdf5Data(_HistogramList):
 
 			with hp.File(filename, 'r') as f:
 				tables = [f['runs'][k] for k in f['runs'].keys()][0]['tables']
-				df = pd.DataFrame(tables['histogram_data'][()][self.__nameMap[filename + " - " + histogramName][0] : self.__nameMap[filename + " - " + histogramName][1]])
+				df = pd.DataFrame(tables['histogram_data'][self.__nameMap[filename + " - " + histogramName][0] : self.__nameMap[filename + " - " + histogramName][1]])
+				#df = pd.DataFrame(tables['histogram_data'][()][self.__nameMap[filename + " - " + histogramName][0] : self.__nameMap[filename + " - " + histogramName][1]])
 			df.name = filename + " - " + histogramName
-			gfu = self.__attrs[filename]['gfu'][0]  	#TODO: Think about generalizing this to any naming convention for nIons/gfu
-			nIons = self.__attrs[filename]['nIons'][0]
+			try:
+				gfu = self.__attrs[filename]['gfu'][0]  	#TODO: Think about generalizing this to any naming convention for nIons/gfu
+				nIons = self.__attrs[filename]['nIons'][0]
+			except:
+				print("ERROR: Can't set gfu or nIons attribute from hdf5 file.")
+				gfu = 1
+				nIons = 1
 			histogram = self.histogramsDict[df.name]#Histogram(filename = filename, histname = histogramName, df = df, gfu = gfu, nIons=nIons)
 			histogram.setDF(df)
 			#self.histogramsDict[df.name] = histogram
@@ -122,8 +128,13 @@ class Hdf5Data(_HistogramList):
 		if not options.no_load: #	--no-load is usefull for large files with many histograms; allows exploration of available options without loading into memory
 			for filename in options.files:
 				with hp.File(filename, 'r') as f:
-					gfu = self.__attrs[filename]['gfu'][0]  	#TODO: Think about generalizing this to any naming convention for nIons/gfu
-					nIons = self.__attrs[filename]['nIons'][0]
+					try:
+						gfu = self.__attrs[filename]['gfu'][0]  	#TODO: Think about generalizing this to any naming convention for nIons/gfu
+						nIons = self.__attrs[filename]['nIons'][0]
+					except:
+						print("ERROR: Can't set gfu or nIons attribute from hdf5 file.")
+						gfu = 1
+						nIons = 1
 					tables = [f['runs'][k] for k in f['runs'].keys()][0]['tables']
 					file_df = pd.DataFrame(tables['histogram_data'][()])
 					for key, bounds in self.__nameMap.items():

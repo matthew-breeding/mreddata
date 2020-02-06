@@ -74,7 +74,7 @@ class PklData(_HistogramList):
 				histogram = self.histogramsDict[filename + " - data"]
 				df = pd.DataFrame(histogramData).T
 				df.columns = ['x', 'y', 'y2', 'xy', 'x2y', 'n', 'w', 'edges']
-				histogram.df = df
+				histogram.setDF(df)
 			elif type(histogramData) == dict:
 				for hName, hValue in histogramData.items():
 					histogram = self.histogramsDict[filename + " - " + hName]
@@ -87,13 +87,6 @@ class PklData(_HistogramList):
 						df = pd.DataFrame(hValue).T
 						df.columns = ['x', 'y', 'y2', 'xy', 'x2y', 'n', 'w', 'edges']
 
-					histogram.df = df
-					if not options.raw:
-						histogram.normalize()
-					if not options.diff:
-						histogram.revInt()
-					else:
-						if not options.raw:
-							histogram.binWidthScale()
+					histogram.setDF(df)
 			else:
 				print("ERROR: Expected types for pickle objects are lists or strings. ")
