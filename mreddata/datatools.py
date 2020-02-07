@@ -166,6 +166,9 @@ class _HistogramList:
 		self.displayHistograms()
 		return ""
 
+	def __len__(self):
+		return len(self.histograms)
+
 	def dropHistograms(self, *args, exact=False, dropFilter=None):
 		''' Removes histograms from the list based on any number of matching strings passed as arguments. '''
 		if args:
