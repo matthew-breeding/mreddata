@@ -73,6 +73,14 @@ colors = {
 # \class Histogram
 #### TODO: (maybe) -- write export functions (csv, pickle etc.)
 class Histogram:
+	'''
+	@df 	: pandas DataFrame object, optional for partially loaded large files.
+	@label 	: label to display in the plot legend; defaults to the full path (filename + histogram name)
+	@color 	: rbg tuple or matplotlib keyword; used for plotting
+	@gfu 	: gun fluence unit attribute from the root directory of the .hdf5 file. In units of cm2. May also be set manually using the device radius (include 4pi solid angle factor for isotropic gun direction)
+	@nIons 	: nIons attribute from the root directory of the .hdf5 file. Total number of ions associated with the simulation output file. 
+	@custom : boolean flag allowing pandas DataFrames of non-standard format. #TODO: implement this functionality by default type checking 
+	'''
 	def __init__(self, histname, filename, df = None, label=None, color=None, dashes = (None, None), sortOrder=None, gfu=1, nIons=0, custom=False):
 		self.filename = filename
 		self.name = histname
@@ -98,15 +106,18 @@ class Histogram:
 		if type(df) != type(None):
 			if yOnly:
 				#columnsToNormalize = ['y']#TODO: Procedurally generate the other columns based on this rather than explicitly, expand for all columns (xy, x2y etc.)
-				df = df[['x', 'y', 'n', 'w']].copy()
-				df.columns = ['x', 'y_raw', 'n', 'w']
+				df = df[['x', 'y', 'y2', 'n', 'w']].copy()
+				df.columns = ['x', 'y_raw', 'y2_raw', 'n', 'w']
 				if int(sum(df['n'])) > self.nIons:
 					self.nIons = int(sum(df['n'])) 
-
 				df.loc[:, ('y_norm')] = df['y_raw']/(self.gfu * self.nIons)
+				df.loc[:, ('y2_norm')] = df['y2_raw']/(self.gfu * self.nIons)
 				df.loc[:, ('y_int')] =  df.loc[:,('y_norm')][::-1].cumsum()[::-1]
+				df.loc[:, ('y2_int')] =  df.loc[:,('y2_norm')][::-1].cumsum()[::-1]
 				df.loc[:, ('y_diff')] = df['y_norm'] / df['w']
+				df.loc[:, ('y2_diff')] = df['y2_norm'] / df['w']
 				df['y_diff'][0] = 0
+				df['y2_diff'][0] = 0
 				df = df.fillna(0)
 				self.df = df
 				self._getTotalDose()
