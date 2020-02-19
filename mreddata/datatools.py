@@ -109,15 +109,16 @@ class Histogram:
 				df = df[['x', 'y', 'y2', 'n', 'w']].copy()
 				df.columns = ['x', 'y_raw', 'y2_raw', 'n', 'w']
 				if int(sum(df['n'])) > self.nIons:
-					self.nIons = int(sum(df['n'])) 
+					self.nIons = int(sum(df['n'])) ###This should never happen...
 				df.loc[:, ('y_norm')] = df['y_raw']/(self.gfu * self.nIons)
-				df.loc[:, ('y2_norm')] = df['y2_raw']/(self.gfu * self.nIons)
+				df.loc[:, ('yerr_norm')] = np.sqrt(df['y2_raw'])/(self.gfu * self.nIons)
 				df.loc[:, ('y_int')] =  df.loc[:,('y_norm')][::-1].cumsum()[::-1]
-				df.loc[:, ('y2_int')] =  df.loc[:,('y2_norm')][::-1].cumsum()[::-1]
+				df.loc[:, ('yerr_int')] =  df.loc[:,('yerr_norm')][::-1].cumsum()[::-1]
 				df.loc[:, ('y_diff')] = df['y_norm'] / df['w']
-				df.loc[:, ('y2_diff')] = df['y2_norm'] / df['w']
+				df.loc[:, ('yerr_diff')] = df['yerr_norm'] / df['w']
 				df['y_diff'][0] = 0
-				df['y2_diff'][0] = 0
+				df['yerr_diff'][0] = 0
+				df = df.replace(np.inf, 0)
 				df = df.fillna(0)
 				self.df = df
 				self._getTotalDose()
@@ -248,7 +249,7 @@ class _HistogramList:
 			return False
 		nTotal = sum([h.nIons for h in histograms])
 		cDF = histograms[0].df.loc[:,('x', 'w')]
-		cDF[['y','n']] = sum([h.df[['y_raw', 'n']] for h in histograms])
+		cDF[['y','y2','n']] = sum([h.df[['y_raw','y2_raw', 'n']] for h in histograms])
 		newHist = Histogram(histname = newHistName , filename='combined histograms', label=label, color=color, df = cDF, gfu = gfu, nIons=nTotal)
 		self.customHistograms.append(newHist)
 		return newHist
@@ -274,7 +275,7 @@ class _HistogramList:
 			yMax *= 10
 			allOptions.ylim = (yMin, yMax)
 
-		plotKwargs = {k:v for k, v in allOptions.__dict__.items() if k in ['kind', 'figsize', 'use_index', 'title', 'grid', 'legend', 'style', 'logx', 'logy', 'loglog', 'xticks', 'yticks', 'xlim', 'ylim', 'rot', 'fontsize', 'colormap', 'colorbar', 'position', 'table', 'yerr', 'xerr', 'dahses', 'drawstyle']}
+		plotKwargs = {k:v for k, v in allOptions.__dict__.items() if k in ['kind', 'figsize', 'use_index', 'title', 'grid', 'legend', 'style', 'logx', 'logy', 'loglog', 'xticks', 'yticks', 'xlim', 'ylim', 'rot', 'fontsize', 'colormap', 'colorbar', 'position', 'table', 'yerr', 'xerr','capsize', 'dahses', 'drawstyle']}
 
 		plt.figure()
 		ax = plt.subplot()
