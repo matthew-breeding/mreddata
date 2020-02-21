@@ -101,28 +101,19 @@ class Hdf5Data(_HistogramList):
 			return histogram
 		except Exception as e:
 			print("ERROR in _getHistogram method: {}".format(e))
-			
-	def getHistograms(self, filename=None, histogramNames=None):
+
+	def getHistograms(self, filename = None, histogramNames=None):
 		''' Load and return all of the histograms in the current Histogram object list.'''
-		output=[]
-		filenames = [x.filename for x in self.histograms]
+		displaystate = options.fullpath
+		options.fullpath = True
 		try:
-			displaystate = options.fullpath
-			options.fullpath = True
-			for filename in filenames:
-				histogramNames = [x for x in self._histNames if filename in x]
-				for histName, histBounds in self.__nameMap.items():
-					if filename in histName:
-						if histName in histogramNames: #TODO: CLean this spaghetti bullshit up
-							if " - " in histName:
-								histName = histName.split(" - ")[1]
-							histogram = self._getHistogram(filename = filename, histogramName=histName)
-							output.append(histogram)
-			options.fullpath = displaystate
-			return output
+			for filename in self.filenames:
+				for h in self.histograms:
+					self._getHistogram(filename = filename, histogramName=h.name)
 		except Exception as e:
 			options.fullpath = displaystate
 			print("ERROR in getHistograms method: {}".format(e))
+		options.fullpath = displaystate
 	
 	def __loadAllHistograms(self):
 		if not options.no_load: #	--no-load is usefull for large files with many histograms; allows exploration of available options without loading into memory

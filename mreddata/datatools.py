@@ -173,6 +173,7 @@ class _HistogramList:
 
 	_histNames = property(lambda self: [x.fullpath if options.fullpath else x.name for x in self.histograms if type(x) == Histogram], None, None, "")
 
+	filenames = property(lambda self: list(set([x.filename for x in self.histograms])), None, None, "")
 
 	def __repr__(self):
 		self.displayHistograms()
@@ -180,6 +181,9 @@ class _HistogramList:
 
 	def __len__(self):
 		return len(self.histograms)
+
+	def __getitem__(self, item):
+		return self.histograms[item]
 
 	def dropHistograms(self, *args, exact=False, dropFilter=None):
 		''' Removes histograms from the list based on any number of matching strings passed as arguments. '''
@@ -228,8 +232,42 @@ class _HistogramList:
 				if parent in hist.filename:
 					print("  ├── {}".format(hist.name))
 
-	def combineHistograms(self, newHistName, label="", color="", histograms=[]):
-		#TODO: add method for saving to file
+### TODO: Change name to stupidCombineAll
+
+	def stupidCombineAllHistograms(self):
+		### Takes all of the histograms in the current histogram object list 
+		## 	and attempts to combine them based on the histogram names. This is 
+		## 	called stupid on purpose -- it should only be done AFTER the list is 
+		##  filtered to only include histograms from those files which should be 
+		##  combined. (e.g. filter to all of the copies from a specific run [using
+		##  my standard naming scheme of 00X_Y.hdf5, 00X_Y.hdf5...], and then call 
+		##  this function to return a list of custom histograms that are combined
+		##  based on the names of the histograms)
+
+		pathState = options.fullpath
+		options.fullpath = False
+		pathCheck = set(['/'.join(x.split("/")[:-1]) +"/" +  x.split("/")[-1].split("_")[0][:-3] for x in self.filenames])
+		uniquePath = list(pathCheck)[0]
+		if len(pathCheck) > 1:
+			print("{}".format(data.filenames))
+			cont = input("\n\nWARNING: the filenames do not match. \n\nAre you __SURE__ you want to name-combine all of the histograms in the current list? [y/Any]: ")
+			if cont != 'y':
+				return False
+			else:
+				print("Continuing...combining based of the first path name: {}".format(uniquePath) )
+
+		histogramNames = list(set([h.name for h in self.histograms]))
+		for hName in histogramNames:
+			self.resetHistograms()
+			self.selectHistograms(uniquePath, hName)
+			self.combineHistograms(newHistName = hName, filename = uniquePath )
+
+		options.fullpath = pathState
+         
+
+
+	def combineHistograms(self, newHistName, label="", color="", histograms=[], filename = 'combined histograms'):
+		#TODO: add method for saving to file, extend the custoHistograms list
 		''' Combines all of the histgorams in the current Histogram object list''' 
 		if not histograms:
 			histograms = self.histograms
@@ -250,7 +288,7 @@ class _HistogramList:
 		nTotal = sum([h.nIons for h in histograms])
 		cDF = histograms[0].df.loc[:,('x', 'w')]
 		cDF[['y','y2','n']] = sum([h.df[['y_raw','y2_raw', 'n']] for h in histograms])
-		newHist = Histogram(histname = newHistName , filename='combined histograms', label=label, color=color, df = cDF, gfu = gfu, nIons=nTotal)
+		newHist = Histogram(histname = newHistName , filename=filename, label=label, color=color, df = cDF, gfu = gfu, nIons=nTotal)
 		self.customHistograms.append(newHist)
 		return newHist
 
