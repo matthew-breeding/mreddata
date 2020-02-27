@@ -8,7 +8,7 @@ from .datatools import _HistogramList, options, Histogram
 # 	The main datatool object in mreddata, providing data manipulation and plotting methods. 
 class Hdf5Data(_HistogramList):
 
-	def __init__(self):
+	def __init__(self, filesIn=options.files):
 
 		self.__nameMap = {}
 		self.__attrs = {} 
@@ -16,7 +16,7 @@ class Hdf5Data(_HistogramList):
 		self.__strings = {}
 		self.__histograms = {}
 
-		for filename in options.files:
+		for filename in filesIn:
 			if '.hdf5' in filename:
 				try:
 					with hp.File(filename, 'r') as f:
