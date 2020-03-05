@@ -21,6 +21,7 @@ mreddata.egg-info/dependency_links.txt
 mreddata.egg-info/top_level.txt
 
 mreddataBackup/mreddata/*
+mreddata/plottools.py
 
 testMred/*
 mreddata/plottools.py

@@ -47,6 +47,7 @@ class Hdf5Data(_HistogramList):
 			histogramName = self.__getHistogramName(self.__strings[filename][i[0]], filename)
 			self.__nameMap[filename + " - " + histogramName] = (i[1], i[1]+i[2])
 
+	attributesDict = property(lambda self: {k:v for k, v in self.__attrs.items() if k in self.filenames}, None, None, "")
 
 	def attributes(self, *args):
 		''' Displays the file attributes for all files in the current Histogram object list. Shows all file attributes by default, 
