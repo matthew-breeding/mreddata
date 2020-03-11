@@ -1,12 +1,12 @@
 import h5py as hp
 import pandas as pd
-from .datatools import _HistogramList, options, Histogram
+from .datatools import HistogramList, options, Histogram
  
 ######################
 # \class Hdf5Data
 #
 # 	The main datatool object in mreddata, providing data manipulation and plotting methods. 
-class Hdf5Data(_HistogramList):
+class Hdf5Data(HistogramList):
 
 	def __init__(self, filesIn=options.files):
 

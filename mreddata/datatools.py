@@ -150,10 +150,15 @@ class Histogram:
 # \class _HistogramListMgr
 #	
 #	This private class provides utilities for managing the histogram object list such as sorting, selecting, filtering
-class _HistogramList:
+class HistogramList:
 	def __init__(self, listIn = []):
 		self.histograms = []
-		if type(listIn[0]) == str:
+		if listIn == []:
+			self.histograms = []
+			self.histogramsDict = {}
+			self.customHistograms = []
+
+		elif type(listIn[0]) == str:
 			for item in listIn:
 				if " - " not in item:
 					print("\n\n\n***********************\nERROR in setting Histogram object list. If only entering names and not Histogram objects, these should be in the format of '/path/to/filename.hdf5 - histogramName' (i.e. with a space-slash-space separating the filename and histogram name).\n\nBreaking from this entry. {}\n\n".format(item))
@@ -182,6 +187,11 @@ class _HistogramList:
 
 	def __getitem__(self, item):
 		return self.histograms[item]
+	
+	def addHistogram(self, histogram):
+		#self.histograms.append(histogram)
+		self.histogramsDict.update({histogram.fullpath : histogram})
+		self._reset.append(histogram)
 
 	def dropHistograms(self, *args, exact=False, dropFilter=None):
 		''' Removes histograms from the list based on any number of matching strings passed as arguments. '''
@@ -230,7 +240,6 @@ class _HistogramList:
 				if parent in hist.filename:
 					print("  ├── {}".format(hist.name))
 
-### TODO: Change name to stupidCombineAll
 
 	def stupidCombineAllHistograms(self):
 		### Takes all of the histograms in the current histogram object list 
