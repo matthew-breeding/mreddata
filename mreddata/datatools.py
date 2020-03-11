@@ -224,6 +224,19 @@ class HistogramList:
 			else:
 				selected = [f for f in self.histograms if selectFilter in f.fullpath]
 			self.histograms = selected
+	
+	def filterHistograms(self, filters = []):
+		""" Pass an array of partial or complete strings to match in the current histogram object list.
+			This function then selects all of the histograms in the current list which matches all of the 
+			strings. (e.g. if you pass filters = ["Mg24", "Mg25", ...] all of the histograms with "MgXX" will
+			be updated in the current list.) """
+		outputs = []
+		fullpaths = [f.fullpath for f in self.histograms]
+		self.histograms = []
+		for fullpath in fullpaths:	
+			for filt in filters:
+				if filt in fullpath:
+					self.histograms.append(self.histogramsDict[fullpath])
 
 	def resetHistograms(self):
 		''' update the histogram list to its original (complete) state'''
