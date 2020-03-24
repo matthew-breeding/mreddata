@@ -137,8 +137,8 @@ class Histogram:
 		''' Returns the total dose accumulated in a sensitive region's histogram. Does not include the under/overflow bins. 
 		Default MRED units assumed -- MeV '''# TODO: Include conversion to useful units ( rad (SiO2) )
 		try:
-			self.totalDose =  np.sum(list(self.df['x'] * self.df['y_norm'])[1:])
-			self.totalDoseN =  np.sum(list(self.df['x'] * self.df['n'])[1:])
+			self.totalDoseNorm =  np.sum(list(self.df['x'] * self.df['y_norm'])[1:])
+			self.totalDose =  np.sum(list(self.df['x'] * self.df['y_raw'])[1:])
 		except:
 			print("ERROR -- no data in Histogram object")
 	
@@ -305,10 +305,12 @@ class HistogramList:
 		else:
 			print("ERROR: No histograms passed to combineHistograms()")
 			return False
+
 		if nIons == 0:
 			nTotal = sum([h.nIons for h in histograms])
 		else:
 			nTotal = nIons
+
 		cDF = histograms[0].df.loc[:,('x', 'w')]
 		cDF[['y','y2','n']] = sum([h.df[['y_raw','y2_raw', 'n']] for h in histograms])
 		newHist = Histogram(histname = newHistName , filename=filename, label=label, color=color, df = cDF, gfu = gfu, nIons=nTotal, sortOrder = sortOrder)
