@@ -67,7 +67,6 @@ class Hdf5Data(HistogramList):
 				else:
 					print("  ├-- {:<15}\t{:<15}".format(str(k), str(a)))
 
-#TODO: Add attributes dict
 	
 	def _getHistogram(self, filename,  histogramName=None, diff=None):
 		''' Loads a histogram from the given @filename. Defaults to the first histgoram in the file, but can select 
@@ -97,6 +96,8 @@ class Hdf5Data(HistogramList):
 				nIons = 1
 			histogram = self.histogramsDict[df.name]#Histogram(filename = filename, histname = histogramName, df = df, gfu = gfu, nIons=nIons)
 			histogram.setDF(df)
+            histogram.gfu = gfu
+            histogram.nIons = nIons
 			#self.histogramsDict[df.name] = histogram
 
 			return histogram

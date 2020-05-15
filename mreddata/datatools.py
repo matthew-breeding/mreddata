@@ -125,7 +125,7 @@ class Histogram:
 			else:
 					##TODO
 				columnsToNormalize = ['y', 'y2', 'xy', 'x2y']
-	
+
 	def getHistAtE(self, energy, column = None):
 		idx = np.abs(self.df['x'] - energy).idxmin()		
 		if column:
