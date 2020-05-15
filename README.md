@@ -1,6 +1,6 @@
 # mreddata
 
-Version 0.3.69:
+Version 0.3.70:
 
 To install: `pip install mreddata`. 
 
