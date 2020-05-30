@@ -99,6 +99,28 @@ class Histogram:
         else:
             return self.name
     
+    def update_nIons(self, nIons):
+        """Added 30 May 2020. Update the normalization in the df when nIons is changed."""
+        try:
+            self.nIons = int(nIons)
+        except:
+            print("ERROR: nIons must be int type")
+            return False
+        dfCopy = self.df[['x', 'y_raw', 'y2_raw', 'n', 'w']].copy()
+        dfCopy.columns = ['x', 'y', 'y2', 'n', 'w']
+        self.setDF(dfCopy)
+
+    def update_gfu(self, gfu):
+        """Added 30 May 2020. Update the normalization in the df when gfu is changed."""
+        try:
+            self.gfu = float(gfu)
+        except:
+            print("ERROR: gfu must be float type")
+            return False
+        dfCopy = self.df[['x', 'y_raw', 'y2_raw', 'n', 'w']].copy()
+        dfCopy.columns = ['x', 'y', 'y2', 'n', 'w']
+        self.setDF(dfCopy)
+
     def setDF(self, df, yOnly =True, custom=False):
         if custom:
             self.df = df

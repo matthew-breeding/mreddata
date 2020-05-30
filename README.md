@@ -1,6 +1,6 @@
 # mreddata
 
-Version 0.3.77:
+Version 0.3.80:
 
 To install: `pip install mreddata`. (PyPi page here: https://pypi.org/project/mreddata/)
 
