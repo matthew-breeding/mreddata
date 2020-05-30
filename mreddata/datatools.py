@@ -81,7 +81,7 @@ class Histogram:
     @nIons     : nIons attribute from the root directory of the .hdf5 file. Total number of ions associated with the simulation output file. 
     @custom : boolean flag allowing pandas DataFrames of non-standard format. #TODO: implement this functionality by default type checking 
     '''
-    def __init__(self, histname, filename, df = None, label=None, color=None, dashes = (None, None), sortOrder=None, gfu=1, nIons=0, custom=False):
+    def __init__(self, histname, filename, df = None, label=None, color=None, dashes = (None, None), sortOrder=None, gfu=1, nIons=1, custom=False):
         self.filename = filename
         self.name = histname
         self.color = color
@@ -108,8 +108,8 @@ class Histogram:
                 #columnsToNormalize = ['y']#TODO: Procedurally generate the other columns based on this rather than explicitly, expand for all columns (xy, x2y etc.)
                 df = df[['x', 'y', 'y2', 'n', 'w']].copy()
                 df.columns = ['x', 'y_raw', 'y2_raw', 'n', 'w']
-                if int(sum(df['n'])) > self.nIons:
-                    self.nIons = int(sum(df['n'])) ###This should never happen...
+                #if int(sum(df['n'])) > self.nIons:
+                    #self.nIons = int(sum(df['n'])) ###This should never happen...
                 df.loc[:, ('y_norm')] = df['y_raw']/(self.gfu * self.nIons)
                 df.loc[:, ('yerr_norm')] = np.sqrt(df['y2_raw'])/(self.gfu * self.nIons)
                 df.loc[:, ('y_int')] =  df.loc[:,('y_norm')][::-1].cumsum()[::-1]

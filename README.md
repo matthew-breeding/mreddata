@@ -1,8 +1,8 @@
 # mreddata
 
-Version 0.3.70:
+Version 0.3.77:
 
-To install: `pip install mreddata`. 
+To install: `pip install mreddata`. (PyPi page here: https://pypi.org/project/mreddata/)
 
 Run with `--no-load` to only load the hdf5 file info, without collected the tables. Useful for large files/lots of histograms.  
 `--files <select files here> ` to manually select which hdf5 files; default is all files ending with .hdf5 in the current directory. 
